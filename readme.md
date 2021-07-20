@@ -10,14 +10,14 @@ You will need the following to use this script:
 - Ansible
 - An AWS Account 
 
-# Setup the Lambda Python Script #
+## Setup the Lambda Python Script ##
 
 Enter the bucket name in python script.
 
 1. Open move_s3_files.py
 2. Replace "Enter-name-of-your-bucket" with proper name of your bucket.
 
-# Setup and Run the Ansible Deploy Script #
+## Setup and Run the Ansible Deploy Script ##
 
 To deploy the s3 bucket and lambda function on AWS.
 
@@ -29,7 +29,7 @@ To deploy the s3 bucket and lambda function on AWS.
 ansible-playbook deploy.yaml
 ```
 
-# Setup and Run the Ansible Destroy Script #
+## Setup and Run the Ansible Destroy Script ##
 
 To destroy the s3 bucket and lambda function on AWS.
 
