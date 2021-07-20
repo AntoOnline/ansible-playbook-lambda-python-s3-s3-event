@@ -1,0 +1,125 @@
+---
+- name: Deploy AWS Lambda function
+  hosts: localhost
+  gather_facts: no
+  vars:
+    bucket :  #'enter the name of the bucket with single quote'
+    accessKey:   #'Enter aws IAM access key with single quote'     
+    secretKey: #'Enter aws IAM secret key with single quote'
+    region: 'ap-south-1' #'Enter region with single quote'
+    lambda_name: 'test-lambda'  # 'Enter the name of your lambda with single quote'
+    lambda_role_name:  #'Enter the Name of the lambda execution 
+ 
+  tasks:
+    - name: zip python code
+      archive: 
+        path: ./move_s3_files.py
+        dest: ./move_s3_files.zip
+        format: zip 
+
+    - name: Get the current caller identity information
+      aws_caller_info:
+        region: "{{ region }}"
+        aws_access_key: "{{ accessKey }}"
+        aws_secret_key: "{{ secretKey }}"        
+      register: caller_info
+
+    - set_fact:
+        acount_id: "{{ caller_info.account }}"
+
+    - name: Create IAM role for lambda
+      iam:
+        iam_type: role
+        name: "{{ lambda_role_name }}"
+        state: present
+        trust_policy:
+          Version: '2012-10-17'
+          Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        aws_access_key: "{{ accessKey }}"
+        aws_secret_key: "{{ secretKey }}"             
+
+    - name: Ansible replace bucket name in lambdapolicy
+      replace:
+        path: lambdapolicy.json
+        regexp: 'BucketName'
+        replace: "{{ bucket }}"      
+
+    - name: Creating policy for lambda role
+      iam_policy:
+        iam_type: role
+        iam_name: "{{ lambda_role_name }}"
+        policy_name: lambdapolicy
+        state: present
+        policy_document: lambdapolicy.json
+
+    - name: Create a bucket with queued as directory, in the specific region
+      aws_s3:
+        bucket: "{{ bucket }}"
+        object: /queued/
+        mode: create
+        region: "{{ region }}"
+        aws_access_key: "{{ accessKey }}"
+        aws_secret_key: "{{ secretKey }}"    
+
+    - name: Create lambda function
+      lambda:
+        name: "{{ lambda_name }}"
+        state: present
+        zip_file: ./move_s3_files.zip
+        runtime: 'python3.8'
+        handler: 'move_s3_files.lambda_handler'
+        role: "arn:aws:iam::{{ acount_id }}:role/{{ lambda_role_name }}"
+        aws_access_key: "{{ accessKey }}"
+        aws_secret_key: "{{ secretKey }}"
+        region: "{{ region }}"
+      register: lambda_output
+      retries: 3
+      until: lambda_output is not failed
+      delay: 10        
+    - name:  lambda function arn
+      debug:
+         var: lambda_output.configuration.function_arn
+
+    - set_fact:
+        arn: "{{ lambda_output.configuration.function_arn }}"
+        acount_id: "{{ caller_info.account }}"       
+
+    - name: Adding Lambda S3 event notification permission
+      lambda_policy:
+        state: present
+        function_name: "{{ arn }}"
+        statement_id: lambda-s3-notifier
+        action: lambda:InvokeFunction
+        principal: s3.amazonaws.com
+        source_arn: "arn:aws:s3:::{{ bucket }}"
+        source_account: "{{ acount_id }}"
+        region: "{{ region }}"
+        aws_access_key: "{{ accessKey }}"
+        aws_secret_key: "{{ secretKey }}"          
+      register: lambda_policy_action
+      retries: 3
+      until: lambda_policy_action is not failed
+      delay: 20   
+    - name: show lambda policy
+      debug:
+        var: lambda_policy_action
+
+    - name: creates a lambda event notification for a bucket which will trigger the lambda
+      s3_bucket_notification:
+        state: present
+        event_name: on_file_add
+        bucket_name: "{{ bucket }}"
+        lambda_function_arn: "{{ lambda_output['configuration']['function_arn'] }}"
+        events: ["s3:ObjectCreated:Put"]
+        suffix: .txt
+        aws_access_key: "{{ accessKey }}"
+        aws_secret_key: "{{ secretKey }}"
+        region: "{{ region }}" 
+      register: result
+      retries: 3
+      until: result is not failed
+      delay: 20

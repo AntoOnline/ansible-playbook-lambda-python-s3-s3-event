@@ -1,0 +1,43 @@
+---
+- name: Deploy AWS Lambda function
+  hosts: localhost
+  gather_facts: no
+  vars:   
+    bucket : #'enter the name of the bucket with single quote'
+    accessKey:  #'Enter aws IAM access key with single quote'     
+    secretKey:  #'Enter aws IAM secret key with single quote'
+    region: #'Enter region with single quote'
+    lambda_name:  # 'Enter the name of your lambda with single quote'
+    lambda_role_name:  #'Enter the Name of the lambda execution role
+ 
+  tasks:
+    - name: Delete Lambda functions
+      lambda:
+        name: "{{ lambda_name }}"
+        state: absent
+        region: "{{ region }}"
+        aws_access_key: "{{ accessKey }}"
+        aws_secret_key: "{{ secretKey }}"   
+        
+    - name: Delete a bucket and all contents
+      aws_s3:
+        bucket: '{{ bucket }}'
+        mode: delete
+        region: "{{ region }}"
+        aws_access_key: "{{ accessKey }}"
+        aws_secret_key: "{{ secretKey }}"  
+        
+    - name: Delete policy for lambda role
+      iam_policy:
+        iam_type: role
+        iam_name: "{{ lambda_role_name }}"
+        policy_name: lambdapolicy
+        state: absent        
+        
+    - name: Delete IAM role for lambda
+      iam:
+        iam_type: role
+        name: "{{ lambda_role_name }}"
+        state: absent
+        aws_access_key: "{{ accessKey }}"
+        aws_secret_key: "{{ secretKey }}"         
