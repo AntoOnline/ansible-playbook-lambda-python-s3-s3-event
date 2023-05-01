@@ -41,3 +41,8 @@ To destroy the s3 bucket and lambda function on AWS.
 ansible-playbook destroy.yaml
 ```
 
+## Want to connect?
+
+Feel free to contact me on [Twitter](https://twitter.com/OnlineAnto), [DEV Community](https://dev.to/antoonline/) or [LinkedIn](https://www.linkedin.com/in/anto-online) if you have any questions or suggestions.
+
+Or just visit my [website](https://anto.online) to see what I do.
